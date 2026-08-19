@@ -3,7 +3,7 @@ SCANNER = wayland-scanner
 PROTOCOLS = wlr-layer-shell-unstable-v1.xml xdg-shell.xml
 HEADERS = $(PROTOCOLS:%.xml=generated/%-client-protocol.h)
 SOURCES = $(PROTOCOLS:%.xml=generated/%-client-protocol.c)
-UTILS = src/surface.c
+UTILS = src/surface.c src/surface/shell.c src/surface/layer.c
 MAIN = src/main.c
 
 generated/%-client-protocol.h: src/protocols/%.xml
@@ -15,7 +15,7 @@ generated/%-client-protocol.c: src/protocols/%.xml
 generated: $(HEADERS) $(SOURCES)
 
 main: generated
-	gcc -o build/main src/main.c $(SOURCES) $(UTILS) $(shell pkg-config --cflags --libs wayland-client)
+	gcc -g -O0 -o build/main src/main.c $(SOURCES) $(UTILS) $(shell pkg-config --cflags --libs wayland-client)
 #-I/usr/lib64/libffi/include -lwayland-client -lm #$(pkg-config --cflags --libs wayland-client)
 
 run: main

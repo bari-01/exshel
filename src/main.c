@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "shell.h"
+#include "surface/shell.h"
 
 int
 main(void)

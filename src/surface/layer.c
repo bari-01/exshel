@@ -1,6 +1,5 @@
-#include "utils.h"
-#include "string.h"
-#include "surface.h"
+#include "../utils.h"
+#include "layer.h"
 #include "stdio.h"
 
 static void
@@ -10,9 +9,6 @@ layer_surface_configure(void *data,
 {
     WaylandSurface *s = data;
 
-    s->width = width;
-    s->height = height;
-
     zwlr_layer_surface_v1_ack_configure(layer_surface, serial);
 
     if (s->width != width || s->height != height) {
@@ -20,7 +16,6 @@ layer_surface_configure(void *data,
         s->height = height;
         s->resize_pending = true;
     }
-
     s->configured = true;
 }
 
@@ -39,10 +34,11 @@ static const struct zwlr_layer_surface_v1_listener layer_surface_listener = {
 
 
 bool
-surface_layer_init(WaylandSurface *s, enum zwlr_layer_shell_v1_layer layer,
+layer_surface_init(WaylandSurface *s, enum zwlr_layer_shell_v1_layer layer,
         const char *namespace, uint32_t anchor, uint32_t width,
         uint32_t height, int32_t exclusive_zone)
 {
+    s->role = SURFACE_LAYER;
     check(!s->layer_shell, "compositor does not provide wlr-layer-shell\n");
 
     s->layer_surface = zwlr_layer_shell_v1_get_layer_surface(s->layer_shell,
@@ -55,10 +51,11 @@ surface_layer_init(WaylandSurface *s, enum zwlr_layer_shell_v1_layer layer,
             s->height = height);
 
     zwlr_layer_surface_v1_set_anchor(s->layer_surface, anchor);
-    zwlr_layer_surface_v1_set_exclusive_zone(s->layer_surface, exclusive_zone);
+    zwlr_layer_surface_v1_set_exclusive_zone( s->layer_surface,
+            exclusive_zone);
     wl_surface_commit(s->surface);
     while (!s->configured) 
-        check(wl_display_dispatch(s->display) < 0,
+        check(wl_display_dispatch( s->display) < 0,
                 "Wayland dispatch failed\n");
 
     return true;

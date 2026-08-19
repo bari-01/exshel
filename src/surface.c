@@ -21,6 +21,9 @@ registry_global(void *data, struct wl_registry *registry, uint32_t name,
     } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
         s->layer_shell = wl_registry_bind(registry, name,
                 &zwlr_layer_shell_v1_interface, 1);
+    } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        s->xdg_wm_base = wl_registry_bind(registry, name,
+                &xdg_wm_base_interface, 1);
     }
 }
 
@@ -49,7 +52,6 @@ surface_init(WaylandSurface *s)
 
     check(wl_display_roundtrip(s->display) < 0, "Wayland roundtrip failed\n");
     check(!s->compositor, "compositor does not provide wl_compositor\n");
-    check(!s->layer_shell, "compositor does not provide wlr-layer-shell\n");
 
     s->surface = wl_compositor_create_surface(s->compositor);
     check(!s->surface, "failed to create wl_surface\n");
