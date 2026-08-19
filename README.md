@@ -13,15 +13,17 @@ Goals:
 - [ ] Multi-display support
 - [ ] Plugins
   - [ ] Custom plugin API (.so)
+    - [ ] Widgets oh no
   - [ ] Examples - 
     - [ ] Tray (SNI, DBusMenu)
+    - [ ] Bar (itself)
     - [ ] MPRIS
     - [ ] Notifications
     - [ ] Clock
     - [ ] Calendar (CalDAV)
     - [ ] Launcher
     - [ ] Workspace management
-    - [ ] Window/task list (Separate bar?)
+    - [ ] Window/task list (Bar plugin)
       - [ ] Hyprland
       - [ ] Sway
       - [ ] xdg-activation
