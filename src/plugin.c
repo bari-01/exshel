@@ -2,6 +2,7 @@
 #include "utils.h"
 
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -448,6 +449,7 @@ plugin_handler_process_requests(PluginHandler *ph)
     while (req) {
         Request *next = req->next;
         SurfaceHandle result = SURFACE_HANDLE_INVALID;
+        log_debug("processing request kind=%d from owner=%u", req->kind, req->owner);
 
         switch (req->kind) {
         case REQ_LAYER_CREATE:
@@ -491,6 +493,8 @@ submit_request_and_wait(PluginHandler *ph, Request *req)
     req->out = &out;
     req->next = NULL;
 
+    log_debug("submitting request kind=%d from owner=%u", req->kind, req->owner);
+
     pthread_mutex_lock(&ph->request_lock);
     if (ph->request_tail)
         ph->request_tail->next = req;
@@ -508,6 +512,8 @@ submit_request_and_wait(PluginHandler *ph, Request *req)
 
     pthread_mutex_destroy(&lock);
     pthread_cond_destroy(&cond);
+    log_debug("request kind=%d completed for owner=%u: handle=%u/%u",
+            req->kind, req->owner, out.index, out.generation);
     return out;
 }
 
@@ -668,6 +674,7 @@ plugin_handler_init(PluginHandler *ph, WaylandContext *ctx)
         free(ph->nodes);
         return false;
     }
+    fcntl(ph->wake_fds[0], F_SETFL, O_NONBLOCK);
 
     ph->core = (CoreAPI){
             .version = 1,
