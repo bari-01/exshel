@@ -2,7 +2,7 @@ An extensible (wayland?) shell in C for *nix
 
 Dependencies:
 
-wlroots (build-time), DBus (for SNI, MPRIS), Vulkan (maybe)
+wlroots (build-time), Vulkan (maybe)
 
 Plugins may depend on pipewire, brightnessctl, DBus, or whichever interface they interact with.
 
