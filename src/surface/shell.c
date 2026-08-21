@@ -1,5 +1,5 @@
-#include "../utils.h"
 #include "shell.h"
+#include "../utils.h"
 #include "layer.h"
 
 bool
@@ -19,8 +19,8 @@ shell_init(WaylandContext *ctx, WaylandSurface *ws, LayerSurface *ls,
     if (!layer_surface_init(ls, ctx, ws, ZWLR_LAYER_SHELL_V1_LAYER_TOP,
                 namespace,
                 ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-                ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-                ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
+                        ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+                        ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
                 0, height, height)) {
         log_debug("shell_init: layer_surface_init failed");
         return false;

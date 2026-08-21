@@ -1,20 +1,24 @@
 #ifndef __XDG_TOPLEVEL_H_
 #define __XDG_TOPLEVEL_H_
 
+#include "../surface.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include "../surface.h"
 
 typedef struct WindowSurface {
-    WaylandSurface      *surface;
-    WaylandContext      *ctx;
-    struct xdg_surface  *xdg_surface;
+    WaylandSurface *surface;
+    WaylandContext *ctx;
+    struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
     uint32_t width;
     uint32_t height;
     bool configured;
     bool closed;
     bool resize_pending;
+
+    void (*on_configure)(void *data, uint32_t width, uint32_t height);
+    void (*on_closed)(void *data);
+    void *notify_data;
 } WindowSurface;
 
 bool window_surface_init(WindowSurface *ws, WaylandContext *ctx,

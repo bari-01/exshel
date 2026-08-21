@@ -18,7 +18,7 @@ generated/%-client-protocol.c: src/protocols/%.xml
 generated: $(HEADERS) $(SOURCES)
 
 main: generated
-	gcc -g -O0 -o build/main $(if $(DEBUG), -DDEBUG) $(MAIN) $(SOURCES) $(UTILS) $(WL_FLAGS) -ldl
+	gcc -g -O0 -o build/main $(if $(DEBUG), -DDEBUG) $(MAIN) $(SOURCES) $(UTILS) $(WL_FLAGS) -ldl -pthread
 
 bar: generated
 	gcc -g -O0 -shared -fPIC -o build/bar.so $(if $(DEBUG), -DDEBUG) plugins/bar.c $(WL_CFLAGS)

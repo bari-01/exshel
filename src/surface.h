@@ -3,16 +3,16 @@
 
 #include <stdbool.h>
 
-#include <wayland-client.h>
 #include "../generated/wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "../generated/xdg-shell-client-protocol.h"
+#include <wayland-client.h>
 
 typedef struct WaylandContext {
-    struct wl_display          *display;
-    struct wl_registry         *registry;
-    struct wl_compositor       *compositor;
+    struct wl_display *display;
+    struct wl_registry *registry;
+    struct wl_compositor *compositor;
     struct zwlr_layer_shell_v1 *layer_shell;
-    struct xdg_wm_base         *xdg_wm_base;
+    struct xdg_wm_base *xdg_wm_base;
 } WaylandContext;
 
 typedef struct WaylandSurface {

@@ -1,5 +1,5 @@
-#include "utils.h"
 #include "surface.h"
+#include "utils.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -15,7 +15,7 @@ xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 }
 
 static const struct xdg_wm_base_listener xdg_wm_base_listener = {
-    .ping = xdg_wm_base_ping,
+        .ping = xdg_wm_base_ping,
 };
 
 static void
@@ -25,27 +25,26 @@ registry_global(void *data, struct wl_registry *registry, uint32_t name,
     WaylandContext *ctx = data;
     (void)version;
 
-    log_debug("Registry global event: name=%u, interface=%s, version=%u",
-            name, interface, version);
+    log_debug("Registry global event: name=%u, interface=%s, version=%u", name,
+            interface, version);
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
-        ctx->compositor = wl_registry_bind(registry, name,
-                &wl_compositor_interface, 4);
+        ctx->compositor =
+                wl_registry_bind(registry, name, &wl_compositor_interface, 4);
         log_debug("Bound wl_compositor interface");
     } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
-        ctx->layer_shell = wl_registry_bind(registry, name,
-                &zwlr_layer_shell_v1_interface, 1);
+        ctx->layer_shell = wl_registry_bind(
+                registry, name, &zwlr_layer_shell_v1_interface, 1);
         log_debug("Bound zwlr_layer_shell_v1 interface");
     } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-        ctx->xdg_wm_base = wl_registry_bind(registry, name,
-                &xdg_wm_base_interface, 1);
+        ctx->xdg_wm_base =
+                wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
         log_debug("Bound xdg_wm_base interface");
     }
 }
 
 static void
-registry_global_remove(void *data, struct wl_registry *registry,
-        uint32_t name)
+registry_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 {
     (void)data;
     (void)registry;
@@ -54,8 +53,8 @@ registry_global_remove(void *data, struct wl_registry *registry,
 }
 
 static const struct wl_registry_listener registry_listener = {
-    .global = registry_global,
-    .global_remove = registry_global_remove,
+        .global = registry_global,
+        .global_remove = registry_global_remove,
 };
 
 bool
@@ -75,8 +74,7 @@ context_init(WaylandContext *ctx)
 
     if (ctx->xdg_wm_base) {
         log_debug("Adding listener for xdg_wm_base");
-        xdg_wm_base_add_listener(ctx->xdg_wm_base,
-                &xdg_wm_base_listener, NULL);
+        xdg_wm_base_add_listener(ctx->xdg_wm_base, &xdg_wm_base_listener, NULL);
     }
 
     log_debug("WaylandContext initialized");

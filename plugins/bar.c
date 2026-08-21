@@ -1,47 +1,78 @@
-#include "../src/plugin.h"
+#include "../src/plugin_api.h"
 #include <stdlib.h>
 
 typedef struct {
-    WaylandSurface *ws;
-    LayerSurface   *ls;
+    const ShellAPI *api;
+    PluginHandle *self;
+    SurfaceHandle bar;
 } BarState;
 
-static int
-bar_init(Shell *shell)
+static void
+bar_event(SurfaceHandle handle, const SurfaceEvent *event, void *user)
 {
+    BarState *state = user;
+    (void)handle;
+
+    switch (event->kind) {
+    case SURFACE_EVENT_CONFIGURE:
+        state->api->core->log("bar configure: %ux%u", event->configure.width,
+                event->configure.height);
+        break;
+    case SURFACE_EVENT_CLOSE:
+        state->api->core->log("bar closed");
+        state->api->core->quit(state->self);
+        break;
+    default:
+        break;
+    }
+}
+
+static int
+bar_init(const ShellAPI *api, PluginHandle *self, const ShellConfig *config)
+{
+    (void)config;
+
     BarState *state = calloc(1, sizeof(*state));
     if (!state) return -1;
-    shell->plugin_data = state;
+    state->api = api;
+    state->self = self;
+    api->core->set_data(self, state);
 
-    state->ws = shell->api->surface_create(shell);
-    if (!state->ws) return -1;
+    state->bar = api->surfaces->layer_create(self,
+            (LayerCreateArgs){
+                    .layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP,
+                    .namespace = "exshel",
+                    .anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+                              ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+                              ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
+                    .width = 0,
+                    .height = 30,
+                    .exclusive_zone = 30,
+            },
+            (SurfaceCallbacks){
+                    .on_event = bar_event,
+                    .user = state,
+            });
+    if (!surface_handle_valid(state->bar)) return -1;
 
-    state->ls = shell->api->layer_create(shell, state->ws,
-            ZWLR_LAYER_SHELL_V1_LAYER_TOP, "vshell",
-            ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-            ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-            ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
-            0, 30, 30);
-    if (!state->ls) return -1;
-
-    shell->api->log("bar configured: %ux%u",
-            state->ls->width, state->ls->height);
+    api->core->log("bar created: handle=%u/%u", state->bar.index,
+            state->bar.generation);
     return 0;
 }
 
 static void
-bar_destroy(Shell *shell)
+bar_destroy(const ShellAPI *api, PluginHandle *self)
 {
-    BarState *state = shell->plugin_data;
+    BarState *state = api->core->get_data(self);
     if (!state) return;
 
-    shell->api->layer_destroy(state->ls);
-    shell->api->surface_destroy(state->ws);
+    /* surfaces already destroyed by host shutdown ordering */
     free(state);
-    shell->plugin_data = NULL;
 }
 
 ShellPlugin shell_plugin = {
-    .init = bar_init,
-    .destroy = bar_destroy,
+        .name = "bar",
+        .version = "0.1",
+        .init = bar_init,
+        .destroy = bar_destroy,
 };

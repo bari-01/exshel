@@ -1,58 +1,67 @@
-#include <dlfcn.h>
-#include <stdio.h>
-#include "utils.h"
 #include "plugin.h"
+#include "utils.h"
+#include <poll.h>
+#include <stdio.h>
+#include <string.h>
 
 int
 main(int argc, char *argv[])
 {
-    Shell shell;
-    const char *plugin_path = argc > 1 ? argv[1] : "./build/bar.so";
-    void *handle;
-    ShellPlugin *plugin;
+    WaylandContext ctx;
+    PluginHandler ph;
 
     log_debug("Starting host");
 
-    if (!shell_setup(&shell)) {
-        fprintf(stderr, "failed to setup shell\n");
+    if (!context_init(&ctx)) {
+        fprintf(stderr, "failed to init wayland context\n");
         return 1;
     }
 
-    handle = dlopen(plugin_path, RTLD_NOW | RTLD_LOCAL);
-    if (!handle) {
-        fprintf(stderr, "dlopen: %s\n", dlerror());
-        shell_teardown(&shell);
-        return 1;
-    }
-    log_debug("Loaded plugin: %s", plugin_path);
-
-    plugin = dlsym(handle, "shell_plugin");
-    if (!plugin) {
-        fprintf(stderr, "dlsym: %s\n", dlerror());
-        dlclose(handle);
-        shell_teardown(&shell);
+    if (!plugin_handler_init(&ph, &ctx)) {
+        fprintf(stderr, "failed to init plugin handler\n");
+        context_destroy(&ctx);
         return 1;
     }
 
-    if (plugin->init(&shell) != 0) {
-        fprintf(stderr, "plugin init failed\n");
-        dlclose(handle);
-        shell_teardown(&shell);
-        return 1;
+    for (int i = 1; i < argc; i++) {
+        if (!plugin_handler_load(&ph, argv[i]))
+            fprintf(stderr, "failed to load: %s\n", argv[i]);
     }
-    log_debug("Plugin initialized");
+    if (argc <= 1) {
+        if (!plugin_handler_load(&ph, "./build/bar.so"))
+            fprintf(stderr, "failed to load default bar.so\n");
+    }
 
     log_debug("Entering main loop");
-    while (shell.running) {
-        if (wl_display_dispatch(shell.ctx.display) < 0) {
-            log_debug("Wayland dispatch error");
+
+    struct pollfd fds[2] = {
+            {.fd = wl_display_get_fd(ctx.display), .events = POLLIN},
+            {.fd = ph.wake_fds[0], .events = POLLIN},
+    };
+
+    while (ph.running) {
+        wl_display_flush(ctx.display);
+
+        if (poll(fds, 2, -1) < 0) {
+            log_debug("poll error");
             break;
+        }
+
+        if (fds[1].revents & POLLIN) {
+            plugin_handler_drain_wake(&ph);
+            plugin_handler_process_requests(&ph);
+        }
+
+        if (fds[0].revents & POLLIN) {
+            if (wl_display_dispatch(ctx.display) < 0) {
+                log_debug("Wayland dispatch error");
+                break;
+            }
         }
     }
 
     log_debug("Exiting main loop");
-    plugin->destroy(&shell);
-    dlclose(handle);
-    shell_teardown(&shell);
+    plugin_handler_teardown(&ph);
+    context_destroy(&ctx);
     return 0;
 }
