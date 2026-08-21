@@ -11,12 +11,13 @@ Goals:
 - [x] Popups
 - [ ] Vulkan renderer (or opengl etc.)
 - [ ] Multi-display support
-- [ ] Plugins
-  - [ ] Custom plugin API (.so)
+- [x] Plugins
+  - [x] Custom plugin API (.so)
     - [ ] Widgets oh no
   - [ ] Examples - 
     - [ ] Tray (SNI, DBusMenu)
-    - [ ] Bar (itself)
+    - [x] Bar
+      - [ ] Chainloading plugins
     - [ ] MPRIS
     - [ ] Notifications
     - [ ] Clock
