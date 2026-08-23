@@ -1,8 +1,8 @@
-An extensible (wayland?) shell in C for *nix
+An extensible shell in C for *nix
 
 Dependencies:
 
-wlroots (build-time), Vulkan (maybe)
+3d graphics, X11/Wayland
 
 Plugins may depend on pipewire, brightnessctl, DBus, or whichever interface they interact with.
 
@@ -29,7 +29,8 @@ Goals:
       - [ ] Sway
       - [ ] xdg-activation
       - [ ] foreign-toplevel-list
-      - [ ] X11
+      - [x] X11 (kind of - incomplete)
+        - [ ] complete it
     - [ ] Bluetooth (BlueZ etc.), NetworkManager
     - [ ] Audio (pipewire/wpctl)
     - [ ] Power / UPower
@@ -48,7 +49,7 @@ Goals:
 - [ ] Theming
 - [ ] Multi monitor
 - [ ] Persistent state
-- [ ] X11
+- [x] X11
   - [ ] XEmbed
   - [ ] XRandR
   - [ ] XInput

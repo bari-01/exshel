@@ -1,11 +1,8 @@
 #ifndef __PLUGIN_API_H_
 #define __PLUGIN_API_H_
 
-#include "../generated/wlr-layer-shell-unstable-v1-client-protocol.h"
-#include "../generated/xdg-shell-client-protocol.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <wayland-client.h>
 
 typedef struct PluginHandle PluginHandle;
 typedef struct ShellConfig ShellConfig;
@@ -25,10 +22,54 @@ static inline bool
 surface_handle_eq(SurfaceHandle a, SurfaceHandle b)
 { return a.index == b.index && a.generation == b.generation; }
 
+// Backend independent enums
+typedef enum {
+    SHELL_LAYER_BACKGROUND = 0,
+    SHELL_LAYER_BOTTOM = 1,
+    SHELL_LAYER_TOP = 2,
+    SHELL_LAYER_OVERLAY = 3,
+} ShellLayer;
+
+// Anchor flags
+typedef enum {
+    SHELL_ANCHOR_NONE = 0,
+    SHELL_ANCHOR_TOP = 1 << 0,
+    SHELL_ANCHOR_BOTTOM = 1 << 1,
+    SHELL_ANCHOR_LEFT = 1 << 2,
+    SHELL_ANCHOR_RIGHT = 1 << 3,
+} ShellAnchor;
+
+typedef enum {
+    POPUP_ANCHOR_NONE = 0,
+    POPUP_ANCHOR_TOP = 1,
+    POPUP_ANCHOR_BOTTOM = 2,
+    POPUP_ANCHOR_LEFT = 3,
+    POPUP_ANCHOR_RIGHT = 4,
+    POPUP_ANCHOR_TOP_LEFT = 5,
+    POPUP_ANCHOR_BOTTOM_LEFT = 6,
+    POPUP_ANCHOR_TOP_RIGHT = 7,
+    POPUP_ANCHOR_BOTTOM_RIGHT = 8,
+} PopupAnchor;
+
+typedef enum {
+    POPUP_GRAVITY_NONE = 0,
+    POPUP_GRAVITY_TOP = 1,
+    POPUP_GRAVITY_BOTTOM = 2,
+    POPUP_GRAVITY_LEFT = 3,
+    POPUP_GRAVITY_RIGHT = 4,
+    POPUP_GRAVITY_TOP_LEFT = 5,
+    POPUP_GRAVITY_BOTTOM_LEFT = 6,
+    POPUP_GRAVITY_TOP_RIGHT = 7,
+    POPUP_GRAVITY_BOTTOM_RIGHT = 8,
+} PopupGravity;
+
 typedef struct {
-    enum zwlr_layer_shell_v1_layer layer;
+    ShellLayer layer;
     const char *namespace;
-    uint32_t anchor;
+    uint32_t anchor; // Bitfield
+    // Explicit window position used by the X11 backend
+    int32_t x;
+    int32_t y;
     uint32_t width;
     uint32_t height;
     int32_t exclusive_zone;
@@ -42,8 +83,8 @@ typedef struct {
     int32_t anchor_height;
     uint32_t width;
     uint32_t height;
-    enum xdg_positioner_anchor anchor;
-    enum xdg_positioner_gravity gravity;
+    PopupAnchor anchor;
+    PopupGravity gravity;
 } PopupCreateArgs;
 
 typedef struct {
@@ -91,6 +132,7 @@ typedef struct {
     void *user;
 } SurfaceCallbacks;
 
+// API vtables
 typedef struct {
     uint32_t version;
     uint32_t size;
@@ -112,10 +154,20 @@ typedef struct {
     void (*destroy)(PluginHandle *self, SurfaceHandle handle);
 } SurfaceAPI;
 
+// EWMH queries. TODO: wayland queries
+typedef struct {
+    uint32_t version;
+    uint32_t size;
+    bool (*get_active_window)(PluginHandle *self, uint32_t *out_wid);
+    bool (*get_client_list)(
+            PluginHandle *self, uint32_t **out_wids, uint32_t *out_count);
+} EWMHAPI;
+
 typedef struct {
     uint32_t abi_version;
     const CoreAPI *core;
     const SurfaceAPI *surfaces;
+    const EWMHAPI *ewmh;
 } ShellAPI;
 
 typedef struct {

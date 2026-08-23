@@ -51,24 +51,25 @@ bar_worker_thread(void *arg)
 
         if (count == 2) {
             state->api->core->log("worker thread creating test popup...");
-            SurfaceHandle popup = state->api->surfaces->popup_create(
-                    state->self,
-                    (PopupCreateArgs){
-                            .parent = state->bar,
-                            .anchor_x = 10,
-                            .anchor_y = 30,
-                            .anchor_width = 100,
-                            .anchor_height = 10,
-                            .width = 200,
-                            .height = 100,
-                            .anchor = XDG_POSITIONER_ANCHOR_BOTTOM_LEFT,
-                            .gravity = XDG_POSITIONER_GRAVITY_BOTTOM_RIGHT,
-                    },
-                    (SurfaceCallbacks){0});
+            SurfaceHandle popup =
+                    state->api->surfaces->popup_create(state->self,
+                            (PopupCreateArgs){
+                                    .parent = state->bar,
+                                    .anchor_x = 10,
+                                    .anchor_y = 30,
+                                    .anchor_width = 100,
+                                    .anchor_height = 10,
+                                    .width = 200,
+                                    .height = 100,
+                                    .anchor = POPUP_ANCHOR_BOTTOM_LEFT,
+                                    .gravity = POPUP_GRAVITY_BOTTOM_RIGHT,
+                            },
+                            (SurfaceCallbacks){0});
 
             if (surface_handle_valid(popup)) {
                 state->api->core->log(
-                        "worker thread successfully created popup handle=%u/%u",
+                        "worker thread successfully created popup "
+                        "handle=%u/%u",
                         popup.index, popup.generation);
                 sleep(2);
                 state->api->surfaces->destroy(state->self, popup);
@@ -94,12 +95,14 @@ bar_init(const ShellAPI *api, PluginHandle *self, const ShellConfig *config)
 
     state->bar = api->surfaces->layer_create(self,
             (LayerCreateArgs){
-                    .layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP,
+                    .layer = SHELL_LAYER_TOP,
                     .namespace = "exshel",
-                    .anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-                              ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-                              ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT,
-                    .width = 0,
+                    .anchor = SHELL_ANCHOR_TOP | SHELL_ANCHOR_LEFT |
+                              SHELL_ANCHOR_RIGHT,
+                    /* x/y: used by the X11 backend; ignored by Wayland */
+                    .x = 0,
+                    .y = 0,
+                    .width = 1920,
                     .height = 30,
                     .exclusive_zone = 30,
             },
@@ -107,6 +110,7 @@ bar_init(const ShellAPI *api, PluginHandle *self, const ShellConfig *config)
                     .on_event = bar_event,
                     .user = state,
             });
+
     if (!surface_handle_valid(state->bar)) {
         free(state);
         return -1;
@@ -114,6 +118,13 @@ bar_init(const ShellAPI *api, PluginHandle *self, const ShellConfig *config)
 
     api->core->log("bar created: handle=%u/%u", state->bar.index,
             state->bar.generation);
+
+    /* Demonstrate EWMH query if available (X11 backend) */
+    if (api->ewmh) {
+        uint32_t active = 0;
+        if (api->ewmh->get_active_window(self, &active))
+            api->core->log("EWMH: _NET_ACTIVE_WINDOW = 0x%x", active);
+    }
 
     state->worker_running = true;
     if (pthread_create(&state->worker_thread, NULL, bar_worker_thread, state) !=

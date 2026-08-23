@@ -1,5 +1,5 @@
-#include "surface.h"
-#include "utils.h"
+#include "context.h"
+#include "../../utils.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +22,7 @@ static void
 registry_global(void *data, struct wl_registry *registry, uint32_t name,
         const char *interface, uint32_t version)
 {
-    WaylandContext *ctx = data;
+    WlContext *ctx = data;
     (void)version;
 
     log_debug("Registry global event: name=%u, interface=%s, version=%u", name,
@@ -58,9 +58,9 @@ static const struct wl_registry_listener registry_listener = {
 };
 
 bool
-context_init(WaylandContext *ctx)
+wl_context_init(WlContext *ctx)
 {
-    log_debug("Initializing WaylandContext");
+    log_debug("Initializing WlContext");
     memset(ctx, 0, sizeof(*ctx));
     ctx->display = wl_display_connect(NULL);
     check(!ctx->display, "failed to connect to Wayland\n");
@@ -77,25 +77,25 @@ context_init(WaylandContext *ctx)
         xdg_wm_base_add_listener(ctx->xdg_wm_base, &xdg_wm_base_listener, NULL);
     }
 
-    log_debug("WaylandContext initialized");
+    log_debug("WlContext initialized");
     return true;
 fail:
-    log_debug("WaylandContext init failed");
-    context_destroy(ctx);
+    log_debug("WlContext init failed");
+    wl_context_destroy(ctx);
     return false;
 }
 
 bool
-context_roundtrip(WaylandContext *ctx)
+wl_context_roundtrip(WlContext *ctx)
 {
     log_debug("Performing context roundtrip");
     return wl_display_roundtrip(ctx->display) >= 0;
 }
 
 void
-context_destroy(WaylandContext *ctx)
+wl_context_destroy(WlContext *ctx)
 {
-    log_debug("Destroying WaylandContext");
+    log_debug("Destroying WlContext");
     wl_destroy(ctx->xdg_wm_base, xdg_wm_base_destroy);
     wl_destroy(ctx->layer_shell, zwlr_layer_shell_v1_destroy);
     wl_destroy(ctx->compositor, wl_compositor_destroy);
@@ -104,23 +104,26 @@ context_destroy(WaylandContext *ctx)
 }
 
 bool
-surface_init(WaylandSurface *s, WaylandContext *ctx)
+wl_surface_init(WlSurface *s, WlContext *ctx)
 {
-    log_debug("Initializing WaylandSurface");
+    log_debug("Initializing WlSurface");
     memset(s, 0, sizeof(*s));
     s->surface = wl_compositor_create_surface(ctx->compositor);
     check(!s->surface, "failed to create wl_surface\n");
-    log_debug("WaylandSurface created: surface=%p", (void *)s->surface);
+    log_debug("WlSurface created: surface=%p", (void *)s->surface);
     return true;
 fail:
-    log_debug("WaylandSurface init failed");
-    surface_destroy(s);
+    log_debug("WlSurface init failed");
+    wl_surface_fini(s);
     return false;
 }
 
 void
-surface_destroy(WaylandSurface *s)
+wl_surface_fini(WlSurface *s)
 {
-    log_debug("Destroying WaylandSurface: surface=%p", (void *)s->surface);
-    wl_destroy(s->surface, wl_surface_destroy);
+    log_debug("Destroying WlSurface: surface=%p", (void *)s->surface);
+    if (s->surface) {
+        wl_surface_destroy(s->surface);
+        s->surface = NULL;
+    }
 }

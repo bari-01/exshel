@@ -1,11 +1,8 @@
 #ifndef __PLUGIN_H_
 #define __PLUGIN_H_
 
+#include "backend/backend.h"
 #include "plugin_api.h"
-#include "surface.h"
-#include "surface/layer.h"
-#include "surface/xdg_popup.h"
-#include "surface/xdg_toplevel.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -16,13 +13,13 @@ typedef enum {
     NODE_TOPLEVEL,
 } NodeKind;
 
-typedef struct {
+typedef struct Node {
     bool in_use;
     uint32_t generation;
     NodeKind kind;
-    WaylandSurface *wl_surface;
-    void *impl;     // LayerSurface*, PopupSurface*, etc.
-    uint32_t owner; // index into plugins array 
+    void *priv;
+    NotifyCtx *nc;
+    uint32_t owner;
     SurfaceHandle parent;
     SurfaceCallbacks callbacks;
 } Node;
@@ -54,8 +51,6 @@ typedef struct Request {
     struct Request *next;
 } Request;
 
-// loaded plugins
-
 typedef struct PluginHandler PluginHandler;
 
 struct PluginHandle {
@@ -78,7 +73,7 @@ typedef struct {
 } LoadedPlugin;
 
 struct PluginHandler {
-    WaylandContext *ctx;
+    BackendContext *backend;
 
     Node *nodes;
     uint32_t node_count;
@@ -92,24 +87,34 @@ struct PluginHandler {
     Request *request_tail;
 
     int wake_fds[2];
+    bool running;
+
+    pthread_mutex_t exit_lock;
+    LoadedPlugin **exited_stack;
+    uint32_t exited_count;
 
     ShellAPI api;
     CoreAPI core;
     SurfaceAPI surfaces;
-
-    bool running;
+    EWMHAPI ewmh_api; // optional
 };
 
-bool plugin_handler_init(PluginHandler *ph, WaylandContext *ctx);
+bool plugin_handler_init(PluginHandler *ph, BackendContext *backend);
 void plugin_handler_teardown(PluginHandler *ph);
-
-bool plugin_handler_load(PluginHandler *ph, const char *path);
-void plugin_handler_unload_all(PluginHandler *ph);
 
 void plugin_handler_process_requests(PluginHandler *ph);
 void plugin_handler_wake(PluginHandler *ph);
 void plugin_handler_drain_wake(PluginHandler *ph);
 
+// post surface events (thread safe)
+void plugin_handler_post_event(
+        PluginHandler *ph, uint32_t owner, SurfaceEvent *ev);
+
 Node *node_lookup(PluginHandler *ph, SurfaceHandle h);
+
+void node_destroy_all_for(PluginHandler *ph, uint32_t owner);
+
+bool plugin_handler_load(PluginHandler *ph, const char *path);
+void plugin_handler_unload_all(PluginHandler *ph);
 
 #endif // __PLUGIN_H_
