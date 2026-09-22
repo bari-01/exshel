@@ -1,11 +1,11 @@
 #include "popup.h"
-#include "../../utils.h"
+#include "../utils.h"
 #include <stdint.h>
 #include <stdio.h>
 
 static void
 xdg_surface_configure(
-        void *data, struct xdg_surface *xdg_surface, uint32_t serial)
+    void *data, struct xdg_surface *xdg_surface, uint32_t serial)
 {
     WlPopupNode *n = data;
     log_debug("xdg_surface_configure (popup): serial=%u", serial);
@@ -14,25 +14,25 @@ xdg_surface_configure(
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
-        .configure = xdg_surface_configure,
+    .configure = xdg_surface_configure,
 };
 
 static void
 popup_configure(void *data, struct xdg_popup *xdg_popup, int32_t x, int32_t y,
-        int32_t width, int32_t height)
+    int32_t width, int32_t height)
 {
     WlPopupNode *n = data;
     (void)xdg_popup;
 
     log_debug("popup_configure: x=%d, y=%d, width=%d, height=%d", x, y, width,
-            height);
+        height);
 
     if (n->configured &&
-            (n->x != x || n->y != y || n->width != (uint32_t)width ||
-                    n->height != (uint32_t)height)) {
+        (n->x != x || n->y != y || n->width != (uint32_t)width ||
+            n->height != (uint32_t)height)) {
         log_debug(
-                "WlPopupNode geometry changed: (%d,%d %ux%u) -> (%d,%d %dx%d)",
-                n->x, n->y, n->width, n->height, x, y, width, height);
+            "WlPopupNode geometry changed: (%d,%d %ux%u) -> (%d,%d %dx%d)",
+            n->x, n->y, n->width, n->height, x, y, width, height);
         n->resize_pending = true;
     }
     n->x = x;
@@ -42,7 +42,7 @@ popup_configure(void *data, struct xdg_popup *xdg_popup, int32_t x, int32_t y,
 
     if (n->nc && n->nc->post_popup_configure)
         n->nc->post_popup_configure(
-                n->nc, x, y, (uint32_t)width, (uint32_t)height);
+            n->nc, x, y, (uint32_t)width, (uint32_t)height);
 }
 
 static void
@@ -57,22 +57,22 @@ popup_done(void *data, struct xdg_popup *xdg_popup)
 }
 
 static const struct xdg_popup_listener popup_listener = {
-        .configure = popup_configure,
-        .popup_done = popup_done,
+    .configure = popup_configure,
+    .popup_done = popup_done,
 };
 
 bool
 wl_popup_node_init(WlPopupNode *n, WlContext *ctx, WlPopupParent *parent,
-        int32_t anchor_x, int32_t anchor_y, int32_t anchor_width,
-        int32_t anchor_height, uint32_t width, uint32_t height,
-        enum xdg_positioner_anchor anchor, enum xdg_positioner_gravity gravity)
+    int32_t anchor_x, int32_t anchor_y, int32_t anchor_width,
+    int32_t anchor_height, uint32_t width, uint32_t height,
+    enum xdg_positioner_anchor anchor, enum xdg_positioner_gravity gravity)
 {
     struct xdg_positioner *positioner = NULL;
 
     log_debug("Initializing WlPopupNode: parent_type=%d, "
               "anchor_rect=(%d,%d,%d,%d), size=%ux%u, anchor=%u, gravity=%u",
-            parent->type, anchor_x, anchor_y, anchor_width, anchor_height,
-            width, height, anchor, gravity);
+        parent->type, anchor_x, anchor_y, anchor_width, anchor_height, width,
+        height, anchor, gravity);
 
     n->ctx = ctx;
     check(!ctx->xdg_wm_base, "compositor does not provide xdg_wm_base\n");
@@ -81,17 +81,17 @@ wl_popup_node_init(WlPopupNode *n, WlContext *ctx, WlPopupParent *parent,
     check(!positioner, "failed to create xdg_positioner\n");
     xdg_positioner_set_size(positioner, (int32_t)width, (int32_t)height);
     xdg_positioner_set_anchor_rect(
-            positioner, anchor_x, anchor_y, anchor_width, anchor_height);
+        positioner, anchor_x, anchor_y, anchor_width, anchor_height);
     xdg_positioner_set_anchor(positioner, anchor);
     xdg_positioner_set_gravity(positioner, gravity);
     xdg_positioner_set_constraint_adjustment(
-            positioner, XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X |
-                                XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y |
-                                XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X |
-                                XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y);
+        positioner, XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_X |
+                        XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_SLIDE_Y |
+                        XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X |
+                        XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y);
 
     n->xdg_surface =
-            xdg_wm_base_get_xdg_surface(ctx->xdg_wm_base, n->surface.surface);
+        xdg_wm_base_get_xdg_surface(ctx->xdg_wm_base, n->surface.surface);
     check(!n->xdg_surface, "failed to create xdg_surface\n");
     xdg_surface_add_listener(n->xdg_surface, &xdg_surface_listener, n);
 
@@ -99,7 +99,7 @@ wl_popup_node_init(WlPopupNode *n, WlContext *ctx, WlPopupParent *parent,
     case WL_POPUP_PARENT_XDG:
         log_debug("Creating popup with xdg_surface parent");
         n->xdg_popup = xdg_surface_get_popup(
-                n->xdg_surface, parent->xdg_surface, positioner);
+            n->xdg_surface, parent->xdg_surface, positioner);
         break;
     case WL_POPUP_PARENT_LAYER:
         log_debug("Creating popup with layer_surface parent");
@@ -121,11 +121,11 @@ wl_popup_node_init(WlPopupNode *n, WlContext *ctx, WlPopupParent *parent,
     log_debug("Committing popup surface and waiting for initial configure");
     wl_surface_commit(n->surface.surface);
     while (!n->configured)
-        check(wl_display_dispatch(ctx->display) < 0,
-                "Wayland dispatch failed\n");
+        check(
+            wl_display_dispatch(ctx->display) < 0, "Wayland dispatch failed\n");
 
     log_debug("WlPopupNode initialized: pos=(%d,%d) size=%ux%u", n->x, n->y,
-            n->width, n->height);
+        n->width, n->height);
     return true;
 fail:
     log_debug("WlPopupNode init failed");

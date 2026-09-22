@@ -1,8 +1,11 @@
 #ifndef __PLUGIN_H_
 #define __PLUGIN_H_
 
-#include "backend/backend.h"
+#include "config.h"
+#include "backend.h"
 #include "plugin_api.h"
+#include "renderer/vulkan/vulkan_runtime.h"
+#include "widget/widget.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -22,6 +25,12 @@ typedef struct Node {
     uint32_t owner;
     SurfaceHandle parent;
     SurfaceCallbacks callbacks;
+    Widget *root_widget;
+    bool render_requested;
+
+    VulkanContext vk;
+    bool vk_initialized;
+    RenderList render_list;
 } Node;
 
 typedef enum {
@@ -64,6 +73,9 @@ typedef struct {
     void *dl_handle;
     PluginHandle handle;
 
+    ShellConfig config; // subtree slice (root may be NULL)
+    bool has_config;
+
     pthread_t thread;
     pthread_mutex_t event_lock;
     pthread_cond_t event_cond;
@@ -73,7 +85,7 @@ typedef struct {
 } LoadedPlugin;
 
 struct PluginHandler {
-    BackendContext *backend;
+    Context *backend;
 
     Node *nodes;
     uint32_t node_count;
@@ -99,7 +111,7 @@ struct PluginHandler {
     EWMHAPI ewmh_api; // optional
 };
 
-bool plugin_handler_init(PluginHandler *ph, BackendContext *backend);
+bool plugin_handler_init(PluginHandler *ph, Context *backend);
 void plugin_handler_teardown(PluginHandler *ph);
 
 void plugin_handler_process_requests(PluginHandler *ph);
@@ -108,13 +120,17 @@ void plugin_handler_drain_wake(PluginHandler *ph);
 
 // post surface events (thread safe)
 void plugin_handler_post_event(
-        PluginHandler *ph, uint32_t owner, SurfaceEvent *ev);
+    PluginHandler *ph, uint32_t owner, SurfaceEvent *ev);
 
 Node *node_lookup(PluginHandler *ph, SurfaceHandle h);
 
 void node_destroy_all_for(PluginHandler *ph, uint32_t owner);
 
-bool plugin_handler_load(PluginHandler *ph, const char *path);
+// doc may be NULL
+bool plugin_handler_load(
+    PluginHandler *ph, const char *path, const ShellConfigDoc *doc);
 void plugin_handler_unload_all(PluginHandler *ph);
+
+void plugin_handler_render_all(PluginHandler *ph);
 
 #endif // __PLUGIN_H_

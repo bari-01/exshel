@@ -6,6 +6,15 @@
 
 typedef struct PluginHandle PluginHandle;
 typedef struct ShellConfig ShellConfig;
+typedef struct Widget Widget;
+
+#define SHELL_ABI_VERSION 2
+
+// Opaque per-plugin config subtree
+struct ShellConfig {
+    const char *instance_name;
+    const void *root;
+};
 
 typedef struct {
     uint32_t index;
@@ -125,7 +134,7 @@ typedef struct SurfaceEvent {
 } SurfaceEvent;
 
 typedef void (*SurfaceEventFn)(
-        SurfaceHandle handle, const SurfaceEvent *event, void *user);
+    SurfaceHandle handle, const SurfaceEvent *event, void *user);
 
 typedef struct {
     SurfaceEventFn on_event;
@@ -145,13 +154,19 @@ typedef struct {
 typedef struct {
     uint32_t version;
     uint32_t size;
-    SurfaceHandle (*layer_create)(PluginHandle *self, LayerCreateArgs args,
-            SurfaceCallbacks callbacks);
-    SurfaceHandle (*popup_create)(PluginHandle *self, PopupCreateArgs args,
-            SurfaceCallbacks callbacks);
+    SurfaceHandle (*layer_create)(
+        PluginHandle *self, LayerCreateArgs args, SurfaceCallbacks callbacks);
+    SurfaceHandle (*popup_create)(
+        PluginHandle *self, PopupCreateArgs args, SurfaceCallbacks callbacks);
     SurfaceHandle (*toplevel_create)(PluginHandle *self,
-            ToplevelCreateArgs args, SurfaceCallbacks callbacks);
+        ToplevelCreateArgs args, SurfaceCallbacks callbacks);
     void (*destroy)(PluginHandle *self, SurfaceHandle handle);
+
+    // Widget hierarchy
+    void (*set_root_widget)(
+        PluginHandle *self, SurfaceHandle handle, Widget *root);
+    Widget *(*get_root_widget)(PluginHandle *self, SurfaceHandle handle);
+    void (*request_render)(PluginHandle *self, SurfaceHandle handle);
 } SurfaceAPI;
 
 // EWMH queries. TODO: wayland queries
@@ -160,7 +175,7 @@ typedef struct {
     uint32_t size;
     bool (*get_active_window)(PluginHandle *self, uint32_t *out_wid);
     bool (*get_client_list)(
-            PluginHandle *self, uint32_t **out_wids, uint32_t *out_count);
+        PluginHandle *self, uint32_t **out_wids, uint32_t *out_count);
 } EWMHAPI;
 
 typedef struct {
@@ -171,10 +186,11 @@ typedef struct {
 } ShellAPI;
 
 typedef struct {
+    uint32_t abi_version;
     const char *name;
     const char *version;
     int (*init)(
-            const ShellAPI *api, PluginHandle *self, const ShellConfig *config);
+        const ShellAPI *api, PluginHandle *self, const ShellConfig *config);
     void (*destroy)(const ShellAPI *api, PluginHandle *self);
 } ShellPlugin;
 

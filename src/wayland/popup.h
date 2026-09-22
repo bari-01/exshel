@@ -1,7 +1,7 @@
 #ifndef __WL_POPUP_H_
 #define __WL_POPUP_H_
 
-#include "../../backend/backend.h"
+#include "../backend.h"
 #include "context.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,9 +36,9 @@ typedef struct {
 } WlPopupNode;
 
 bool wl_popup_node_init(WlPopupNode *n, WlContext *ctx, WlPopupParent *parent,
-        int32_t anchor_x, int32_t anchor_y, int32_t anchor_width,
-        int32_t anchor_height, uint32_t width, uint32_t height,
-        enum xdg_positioner_anchor anchor, enum xdg_positioner_gravity gravity);
+    int32_t anchor_x, int32_t anchor_y, int32_t anchor_width,
+    int32_t anchor_height, uint32_t width, uint32_t height,
+    enum xdg_positioner_anchor anchor, enum xdg_positioner_gravity gravity);
 
 void wl_popup_node_destroy(WlPopupNode *n);
 

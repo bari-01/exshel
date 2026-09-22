@@ -1,7 +1,7 @@
 #ifndef __WL_LAYER_H_
 #define __WL_LAYER_H_
 
-#include "../../backend/backend.h"
+#include "../backend.h"
 #include "context.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,9 +20,8 @@ typedef struct {
 } WlLayerNode;
 
 bool wl_layer_node_init(WlLayerNode *n, WlContext *ctx,
-        enum zwlr_layer_shell_v1_layer layer, const char *namespace,
-        uint32_t anchor, uint32_t width, uint32_t height,
-        int32_t exclusive_zone);
+    enum zwlr_layer_shell_v1_layer layer, const char *namespace,
+    uint32_t anchor, uint32_t width, uint32_t height, int32_t exclusive_zone);
 
 void wl_layer_node_destroy(WlLayerNode *n);
 

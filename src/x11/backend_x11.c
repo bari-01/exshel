@@ -1,6 +1,6 @@
 #include "backend_x11.h"
-#include "../../plugin.h"
-#include "../../utils.h"
+#include "../plugin.h"
+#include "../utils.h"
 #include "context.h"
 #include "dock.h"
 #include "popup.h"
@@ -65,7 +65,7 @@ dispatch_node_close(Node *n)
 }
 
 static int
-x11_backend_dispatch(BackendContext *bc)
+x11_backend_dispatch(Context *bc)
 {
     X11Context *ctx = bc->priv;
     xcb_generic_event_t *ev;
@@ -80,12 +80,12 @@ x11_backend_dispatch(BackendContext *bc)
             Node *n = x11_win_lookup(ctx, e->window);
             if (n && n->priv)
                 dispatch_node_configure(n, ((X11DockNode *)n->priv)->width,
-                        ((X11DockNode *)n->priv)->height);
+                    ((X11DockNode *)n->priv)->height);
             break;
         }
         case XCB_CONFIGURE_NOTIFY: {
             xcb_configure_notify_event_t *e =
-                    (xcb_configure_notify_event_t *)ev;
+                (xcb_configure_notify_event_t *)ev;
             Node *n = x11_win_lookup(ctx, e->window);
             if (n && n->priv) {
                 /* Update stored position for popups */
@@ -103,7 +103,7 @@ x11_backend_dispatch(BackendContext *bc)
                     dn->y = e->y;
                 }
                 dispatch_node_configure(
-                        n, (uint32_t)e->width, (uint32_t)e->height);
+                    n, (uint32_t)e->width, (uint32_t)e->height);
             }
             break;
         }
@@ -132,33 +132,32 @@ x11_backend_dispatch(BackendContext *bc)
 }
 
 static bool
-x11_backend_init(BackendContext *bc)
+x11_backend_init(Context *bc)
 {
     (void)bc;
     return true;
 }
 
 static void
-x11_backend_destroy(BackendContext *bc)
+x11_backend_destroy(Context *bc)
 { (void)bc; }
 
 static int
-x11_backend_get_fd(BackendContext *bc)
+x11_backend_get_fd(Context *bc)
 {
     X11Context *ctx = bc->priv;
     return xcb_get_file_descriptor(ctx->conn);
 }
 
 static void
-x11_backend_flush(BackendContext *bc)
+x11_backend_flush(Context *bc)
 {
     X11Context *ctx = bc->priv;
     xcb_flush(ctx->conn);
 }
 
 static bool
-x11_layer_create(
-        BackendContext *bc, Node *n, const LayerCreateArgs *a, NotifyCtx *nc)
+x11_layer_create(Context *bc, Node *n, const LayerCreateArgs *a, NotifyCtx *nc)
 {
     X11Context *ctx = bc->priv;
     X11DockNode *dn = calloc(1, sizeof(*dn));
@@ -167,7 +166,7 @@ x11_layer_create(
     dn->nc = nc;
 
     if (!x11_dock_node_init(dn, ctx, a->x, a->y, a->width, a->height, a->anchor,
-                a->exclusive_zone, a->namespace)) {
+            a->exclusive_zone, a->namespace)) {
         free(dn);
         return false;
     }
@@ -178,13 +177,13 @@ x11_layer_create(
     if (nc && nc->post_configure) nc->post_configure(nc, a->width, a->height);
 
     log_debug("x11_layer_create: win=0x%x size=%ux%u", dn->window, a->width,
-            a->height);
+        a->height);
     return true;
 }
 
 static bool
-x11_popup_create(BackendContext *bc, Node *n, const PopupCreateArgs *a,
-        Node *parent, NotifyCtx *nc)
+x11_popup_create(
+    Context *bc, Node *n, const PopupCreateArgs *a, Node *parent, NotifyCtx *nc)
 {
     X11Context *ctx = bc->priv;
     X11PopupNode *pn = calloc(1, sizeof(*pn));
@@ -218,8 +217,8 @@ x11_popup_create(BackendContext *bc, Node *n, const PopupCreateArgs *a,
 
     int32_t rx, ry;
     x11_popup_compute_position(px, py, a->anchor_x, a->anchor_y,
-            a->anchor_width, a->anchor_height, a->width, a->height, a->anchor,
-            a->gravity, &rx, &ry);
+        a->anchor_width, a->anchor_height, a->width, a->height, a->anchor,
+        a->gravity, &rx, &ry);
 
     if (!x11_popup_node_init(pn, ctx, rx, ry, a->width, a->height)) {
         free(pn);
@@ -233,13 +232,13 @@ x11_popup_create(BackendContext *bc, Node *n, const PopupCreateArgs *a,
         nc->post_popup_configure(nc, rx, ry, a->width, a->height);
 
     log_debug("x11_popup_create: win=0x%x pos=(%d,%d) size=%ux%u", pn->window,
-            rx, ry, a->width, a->height);
+        rx, ry, a->width, a->height);
     return true;
 }
 
 static bool
 x11_toplevel_create(
-        BackendContext *bc, Node *n, const ToplevelCreateArgs *a, NotifyCtx *nc)
+    Context *bc, Node *n, const ToplevelCreateArgs *a, NotifyCtx *nc)
 {
     X11Context *ctx = bc->priv;
     X11ToplevelNode *tn = calloc(1, sizeof(*tn));
@@ -248,7 +247,7 @@ x11_toplevel_create(
     tn->nc = nc;
 
     if (!x11_toplevel_node_init(
-                tn, ctx, a->width, a->height, a->title, a->app_id)) {
+            tn, ctx, a->width, a->height, a->title, a->app_id)) {
         free(tn);
         return false;
     }
@@ -260,12 +259,12 @@ x11_toplevel_create(
         nc->post_toplevel_configure(nc, a->width, a->height);
 
     log_debug("x11_toplevel_create: win=0x%x size=%ux%u", tn->window, a->width,
-            a->height);
+        a->height);
     return true;
 }
 
 static void
-x11_node_destroy(BackendContext *bc, Node *n)
+x11_node_destroy(Context *bc, Node *n)
 {
     X11Context *ctx = bc->priv;
     if (!n->priv) return;
@@ -297,11 +296,11 @@ x11_node_destroy(BackendContext *bc, Node *n)
 }
 
 static bool
-x11_ewmh_get_active_window(BackendContext *bc, uint32_t *out_wid)
+x11_ewmh_get_active_window(Context *bc, uint32_t *out_wid)
 {
     X11Context *ctx = bc->priv;
     xcb_get_property_cookie_t cookie =
-            xcb_ewmh_get_active_window(&ctx->ewmh, ctx->screen_nbr);
+        xcb_ewmh_get_active_window(&ctx->ewmh, ctx->screen_nbr);
     xcb_window_t active;
     if (!xcb_ewmh_get_active_window_reply(&ctx->ewmh, cookie, &active, NULL))
         return false;
@@ -310,12 +309,11 @@ x11_ewmh_get_active_window(BackendContext *bc, uint32_t *out_wid)
 }
 
 static bool
-x11_ewmh_get_client_list(
-        BackendContext *bc, uint32_t **out_wids, uint32_t *out_count)
+x11_ewmh_get_client_list(Context *bc, uint32_t **out_wids, uint32_t *out_count)
 {
     X11Context *ctx = bc->priv;
     xcb_get_property_cookie_t cookie =
-            xcb_ewmh_get_client_list(&ctx->ewmh, ctx->screen_nbr);
+        xcb_ewmh_get_client_list(&ctx->ewmh, ctx->screen_nbr);
     xcb_ewmh_get_windows_reply_t reply;
     if (!xcb_ewmh_get_client_list_reply(&ctx->ewmh, cookie, &reply, NULL))
         return false;
@@ -323,30 +321,99 @@ x11_ewmh_get_client_list(
     *out_count = reply.windows_len;
     *out_wids = malloc(reply.windows_len * sizeof(uint32_t));
     if (*out_wids)
-        memcpy(*out_wids, reply.windows,
-                reply.windows_len * sizeof(xcb_window_t));
+        memcpy(
+            *out_wids, reply.windows, reply.windows_len * sizeof(xcb_window_t));
     xcb_ewmh_get_windows_reply_wipe(&reply);
     return *out_wids != NULL;
 }
 
-static const BackendOps x11_ops = {
-        .init = x11_backend_init,
-        .destroy = x11_backend_destroy,
-        .get_fd = x11_backend_get_fd,
-        .dispatch = x11_backend_dispatch,
-        .flush = x11_backend_flush,
-        .layer_create = x11_layer_create,
-        .popup_create = x11_popup_create,
-        .toplevel_create = x11_toplevel_create,
-        .node_destroy = x11_node_destroy,
-        .ewmh_get_active_window = x11_ewmh_get_active_window,
-        .ewmh_get_client_list = x11_ewmh_get_client_list,
+static void *
+x11_get_native_display(Context *bc)
+{
+    X11Context *ctx = bc->priv;
+    return ctx ? ctx->conn : NULL;
+}
+
+static void *
+x11_get_native_window(Context *bc, Node *n)
+{
+    (void)bc;
+    if (!n || !n->priv) return NULL;
+    switch (n->kind) {
+    case NODE_LAYER: {
+        X11DockNode *dn = n->priv;
+        return (void *)(uintptr_t)dn->window;
+    }
+    case NODE_POPUP: {
+        X11PopupNode *pn = n->priv;
+        return (void *)(uintptr_t)pn->window;
+    }
+    case NODE_TOPLEVEL: {
+        X11ToplevelNode *tn = n->priv;
+        return (void *)(uintptr_t)tn->window;
+    }
+    }
+    return NULL;
+}
+
+static void
+x11_get_dimensions(Context *bc, Node *n, uint32_t *w, uint32_t *h)
+{
+    (void)bc;
+    if (w) *w = 0;
+    if (h) *h = 0;
+    if (!n || !n->priv) return;
+    switch (n->kind) {
+    case NODE_LAYER: {
+        X11DockNode *dn = n->priv;
+        if (w) *w = dn->width;
+        if (h) *h = dn->height;
+        break;
+    }
+    case NODE_POPUP: {
+        X11PopupNode *pn = n->priv;
+        if (w) *w = pn->width;
+        if (h) *h = pn->height;
+        break;
+    }
+    case NODE_TOPLEVEL: {
+        X11ToplevelNode *tn = n->priv;
+        if (w) *w = tn->width;
+        if (h) *h = tn->height;
+        break;
+    }
+    }
+}
+
+static int
+x11_get_display_type(Context *bc)
+{
+    (void)bc;
+    return 1; /* DISPLAY_X11 */
+}
+
+static const Ops x11_ops = {
+    .init = x11_backend_init,
+    .destroy = x11_backend_destroy,
+    .get_fd = x11_backend_get_fd,
+    .dispatch = x11_backend_dispatch,
+    .flush = x11_backend_flush,
+    .layer_create = x11_layer_create,
+    .popup_create = x11_popup_create,
+    .toplevel_create = x11_toplevel_create,
+    .node_destroy = x11_node_destroy,
+    .ewmh_get_active_window = x11_ewmh_get_active_window,
+    .ewmh_get_client_list = x11_ewmh_get_client_list,
+    .get_native_display = x11_get_native_display,
+    .get_native_window = x11_get_native_window,
+    .get_dimensions = x11_get_dimensions,
+    .get_display_type = x11_get_display_type,
 };
 
-BackendContext *
+Context *
 x11_backend_create(X11Context *ctx)
 {
-    BackendContext *bc = calloc(1, sizeof(*bc));
+    Context *bc = calloc(1, sizeof(*bc));
     if (!bc) return NULL;
     bc->ops = &x11_ops;
     bc->priv = ctx;
@@ -354,5 +421,5 @@ x11_backend_create(X11Context *ctx)
 }
 
 void
-x11_backend_free(BackendContext *bc)
+x11_backend_free(Context *bc)
 { free(bc); }

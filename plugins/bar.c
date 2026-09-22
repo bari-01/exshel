@@ -22,7 +22,7 @@ bar_event(SurfaceHandle handle, const SurfaceEvent *event, void *user)
     switch (event->kind) {
     case SURFACE_EVENT_CONFIGURE:
         state->api->core->log("bar configure: %ux%u", event->configure.width,
-                event->configure.height);
+            event->configure.height);
         break;
     case SURFACE_EVENT_CLOSE:
         state->api->core->log("bar closed");
@@ -47,30 +47,30 @@ bar_worker_thread(void *arg)
 
         count++;
         state->api->core->log("worker tick #%d from thread 0x%lx", count,
-                (unsigned long)pthread_self());
+            (unsigned long)pthread_self());
 
         if (count == 2) {
             state->api->core->log("worker thread creating test popup...");
             SurfaceHandle popup =
-                    state->api->surfaces->popup_create(state->self,
-                            (PopupCreateArgs){
-                                    .parent = state->bar,
-                                    .anchor_x = 10,
-                                    .anchor_y = 30,
-                                    .anchor_width = 100,
-                                    .anchor_height = 10,
-                                    .width = 200,
-                                    .height = 100,
-                                    .anchor = POPUP_ANCHOR_BOTTOM_LEFT,
-                                    .gravity = POPUP_GRAVITY_BOTTOM_RIGHT,
-                            },
-                            (SurfaceCallbacks){0});
+                state->api->surfaces->popup_create(state->self,
+                    (PopupCreateArgs){
+                        .parent = state->bar,
+                        .anchor_x = 10,
+                        .anchor_y = 30,
+                        .anchor_width = 100,
+                        .anchor_height = 10,
+                        .width = 200,
+                        .height = 100,
+                        .anchor = POPUP_ANCHOR_BOTTOM_LEFT,
+                        .gravity = POPUP_GRAVITY_BOTTOM_RIGHT,
+                    },
+                    (SurfaceCallbacks){0});
 
             if (surface_handle_valid(popup)) {
                 state->api->core->log(
-                        "worker thread successfully created popup "
-                        "handle=%u/%u",
-                        popup.index, popup.generation);
+                    "worker thread successfully created popup "
+                    "handle=%u/%u",
+                    popup.index, popup.generation);
                 sleep(2);
                 state->api->surfaces->destroy(state->self, popup);
                 state->api->core->log("worker thread destroyed popup");
@@ -94,30 +94,29 @@ bar_init(const ShellAPI *api, PluginHandle *self, const ShellConfig *config)
     api->core->set_data(self, state);
 
     state->bar = api->surfaces->layer_create(self,
-            (LayerCreateArgs){
-                    .layer = SHELL_LAYER_TOP,
-                    .namespace = "exshel",
-                    .anchor = SHELL_ANCHOR_TOP | SHELL_ANCHOR_LEFT |
-                              SHELL_ANCHOR_RIGHT,
-                    /* x/y: used by the X11 backend; ignored by Wayland */
-                    .x = 0,
-                    .y = 0,
-                    .width = 1920,
-                    .height = 30,
-                    .exclusive_zone = 30,
-            },
-            (SurfaceCallbacks){
-                    .on_event = bar_event,
-                    .user = state,
-            });
+        (LayerCreateArgs){
+            .layer = SHELL_LAYER_TOP,
+            .namespace = "exshel",
+            .anchor = SHELL_ANCHOR_TOP | SHELL_ANCHOR_LEFT | SHELL_ANCHOR_RIGHT,
+            /* x/y: used by the X11 backend; ignored by Wayland */
+            .x = 0,
+            .y = 0,
+            .width = 1920,
+            .height = 30,
+            .exclusive_zone = 30,
+        },
+        (SurfaceCallbacks){
+            .on_event = bar_event,
+            .user = state,
+        });
 
     if (!surface_handle_valid(state->bar)) {
         free(state);
         return -1;
     }
 
-    api->core->log("bar created: handle=%u/%u", state->bar.index,
-            state->bar.generation);
+    api->core->log(
+        "bar created: handle=%u/%u", state->bar.index, state->bar.generation);
 
     /* Demonstrate EWMH query if available (X11 backend) */
     if (api->ewmh) {
@@ -128,7 +127,7 @@ bar_init(const ShellAPI *api, PluginHandle *self, const ShellConfig *config)
 
     state->worker_running = true;
     if (pthread_create(&state->worker_thread, NULL, bar_worker_thread, state) !=
-            0) {
+        0) {
         api->core->log("failed to spawn worker thread");
         state->worker_running = false;
     }
@@ -152,8 +151,8 @@ bar_destroy(const ShellAPI *api, PluginHandle *self)
 }
 
 ShellPlugin shell_plugin = {
-        .name = "bar",
-        .version = "0.1",
-        .init = bar_init,
-        .destroy = bar_destroy,
+    .name = "bar",
+    .version = "0.1",
+    .init = bar_init,
+    .destroy = bar_destroy,
 };

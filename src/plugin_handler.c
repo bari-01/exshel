@@ -85,8 +85,14 @@ node_destroy_impl(PluginHandler *ph, Node *n)
     n->nc = NULL;
     n->priv = NULL;
 
+    if (n->vk_initialized) {
+        vulkan_runtime_cleanup(&n->vk);
+        render_list_free(&n->render_list);
+        n->vk_initialized = false;
+    }
+
     log_debug("node destroyed: index=%u gen=%u kind=%d",
-            (uint32_t)(n - ph->nodes), n->generation, n->kind);
+        (uint32_t)(n - ph->nodes), n->generation, n->kind);
     n->in_use = false;
 }
 
@@ -141,7 +147,7 @@ nc_post_close(NotifyCtx *nc)
 
 static void
 nc_post_popup_configure(
-        NotifyCtx *nc, int32_t x, int32_t y, uint32_t w, uint32_t h)
+    NotifyCtx *nc, int32_t x, int32_t y, uint32_t w, uint32_t h)
 {
     SurfaceEvent *ev = calloc(1, sizeof(*ev));
     if (!ev) return;
@@ -317,7 +323,7 @@ process_toplevel_create(PluginHandler *ph, Request *req)
     }
 
     log_debug(
-            "process_toplevel_create: index=%u gen=%u", h.index, h.generation);
+        "process_toplevel_create: index=%u gen=%u", h.index, h.generation);
     return h;
 }
 
@@ -345,8 +351,8 @@ plugin_handler_process_requests(PluginHandler *ph)
     while (req) {
         Request *next = req->next;
         SurfaceHandle r = SURFACE_HANDLE_INVALID;
-        log_debug("processing request kind=%d from owner=%u", req->kind,
-                req->owner);
+        log_debug(
+            "processing request kind=%d from owner=%u", req->kind, req->owner);
 
         switch (req->kind) {
         case REQ_LAYER_CREATE:
@@ -405,7 +411,7 @@ submit_request_and_wait(PluginHandler *ph, Request *req)
     req->next = NULL;
 
     log_debug(
-            "submitting request kind=%d from owner=%u", req->kind, req->owner);
+        "submitting request kind=%d from owner=%u", req->kind, req->owner);
 
     pthread_mutex_lock(&ph->request_lock);
     if (ph->request_tail)
@@ -425,45 +431,45 @@ submit_request_and_wait(PluginHandler *ph, Request *req)
     pthread_mutex_destroy(&lock);
     pthread_cond_destroy(&cond);
     log_debug("request kind=%d completed for owner=%u: handle=%u/%u", req->kind,
-            req->owner, out.index, out.generation);
+        req->owner, out.index, out.generation);
     return out;
 }
 
 static SurfaceHandle
 api_layer_create(
-        PluginHandle *self, LayerCreateArgs args, SurfaceCallbacks callbacks)
+    PluginHandle *self, LayerCreateArgs args, SurfaceCallbacks callbacks)
 {
     Request req = {
-            .kind = REQ_LAYER_CREATE,
-            .owner = self->plugin_index,
-            .args.layer = args,
-            .callbacks = callbacks,
+        .kind = REQ_LAYER_CREATE,
+        .owner = self->plugin_index,
+        .args.layer = args,
+        .callbacks = callbacks,
     };
     return submit_request_and_wait(self->handler, &req);
 }
 
 static SurfaceHandle
 api_popup_create(
-        PluginHandle *self, PopupCreateArgs args, SurfaceCallbacks callbacks)
+    PluginHandle *self, PopupCreateArgs args, SurfaceCallbacks callbacks)
 {
     Request req = {
-            .kind = REQ_POPUP_CREATE,
-            .owner = self->plugin_index,
-            .args.popup = args,
-            .callbacks = callbacks,
+        .kind = REQ_POPUP_CREATE,
+        .owner = self->plugin_index,
+        .args.popup = args,
+        .callbacks = callbacks,
     };
     return submit_request_and_wait(self->handler, &req);
 }
 
 static SurfaceHandle
 api_toplevel_create(
-        PluginHandle *self, ToplevelCreateArgs args, SurfaceCallbacks callbacks)
+    PluginHandle *self, ToplevelCreateArgs args, SurfaceCallbacks callbacks)
 {
     Request req = {
-            .kind = REQ_TOPLEVEL_CREATE,
-            .owner = self->plugin_index,
-            .args.toplevel = args,
-            .callbacks = callbacks,
+        .kind = REQ_TOPLEVEL_CREATE,
+        .owner = self->plugin_index,
+        .args.toplevel = args,
+        .callbacks = callbacks,
     };
     return submit_request_and_wait(self->handler, &req);
 }
@@ -472,11 +478,39 @@ static void
 api_surface_destroy(PluginHandle *self, SurfaceHandle handle)
 {
     Request req = {
-            .kind = REQ_DESTROY,
-            .owner = self->plugin_index,
-            .args.destroy_handle = handle,
+        .kind = REQ_DESTROY,
+        .owner = self->plugin_index,
+        .args.destroy_handle = handle,
     };
     submit_request_and_wait(self->handler, &req);
+}
+
+static void
+api_surface_set_root_widget(
+    PluginHandle *self, SurfaceHandle handle, Widget *root)
+{
+    PluginHandler *ph = self->handler;
+    Node *n = node_lookup(ph, handle);
+    if (n) { n->root_widget = root; }
+}
+
+static Widget *
+api_surface_get_root_widget(PluginHandle *self, SurfaceHandle handle)
+{
+    PluginHandler *ph = self->handler;
+    Node *n = node_lookup(ph, handle);
+    return n ? n->root_widget : NULL;
+}
+
+static void
+api_surface_request_render(PluginHandle *self, SurfaceHandle handle)
+{
+    PluginHandler *ph = self->handler;
+    Node *n = node_lookup(ph, handle);
+    if (n) {
+        n->render_requested = true;
+        plugin_handler_wake(ph);
+    }
 }
 
 static void
@@ -516,17 +550,17 @@ api_ewmh_get_active_window(PluginHandle *self, uint32_t *out_wid)
 
 static bool
 api_ewmh_get_client_list(
-        PluginHandle *self, uint32_t **out_wids, uint32_t *out_count)
+    PluginHandle *self, uint32_t **out_wids, uint32_t *out_count)
 {
     PluginHandler *ph = self->handler;
     if (!ph->backend->ops->ewmh_get_client_list) return false;
     return ph->backend->ops->ewmh_get_client_list(
-            ph->backend, out_wids, out_count);
+        ph->backend, out_wids, out_count);
 }
 
 // handler init / teardown
 bool
-plugin_handler_init(PluginHandler *ph, BackendContext *backend)
+plugin_handler_init(PluginHandler *ph, Context *backend)
 {
     memset(ph, 0, sizeof(*ph));
     ph->backend = backend;
@@ -546,36 +580,39 @@ plugin_handler_init(PluginHandler *ph, BackendContext *backend)
     fcntl(ph->wake_fds[0], F_SETFL, O_NONBLOCK);
 
     ph->core = (CoreAPI){
-            .version = 1,
-            .size = sizeof(CoreAPI),
-            .log = api_log,
-            .quit = api_quit,
-            .set_data = api_set_data,
-            .get_data = api_get_data,
+        .version = 1,
+        .size = sizeof(CoreAPI),
+        .log = api_log,
+        .quit = api_quit,
+        .set_data = api_set_data,
+        .get_data = api_get_data,
     };
     ph->surfaces = (SurfaceAPI){
-            .version = 1,
-            .size = sizeof(SurfaceAPI),
-            .layer_create = api_layer_create,
-            .popup_create = api_popup_create,
-            .toplevel_create = api_toplevel_create,
-            .destroy = api_surface_destroy,
+        .version = 1,
+        .size = sizeof(SurfaceAPI),
+        .layer_create = api_layer_create,
+        .popup_create = api_popup_create,
+        .toplevel_create = api_toplevel_create,
+        .destroy = api_surface_destroy,
+        .set_root_widget = api_surface_set_root_widget,
+        .get_root_widget = api_surface_get_root_widget,
+        .request_render = api_surface_request_render,
     };
     ph->api = (ShellAPI){
-            .abi_version = 1,
-            .core = &ph->core,
-            .surfaces = &ph->surfaces,
-            .ewmh = NULL,
+        .abi_version = 1,
+        .core = &ph->core,
+        .surfaces = &ph->surfaces,
+        .ewmh = NULL,
     };
 
     // check ewmh api
     if (backend->ops->ewmh_get_active_window ||
-            backend->ops->ewmh_get_client_list) {
+        backend->ops->ewmh_get_client_list) {
         ph->ewmh_api = (EWMHAPI){
-                .version = 1,
-                .size = sizeof(EWMHAPI),
-                .get_active_window = api_ewmh_get_active_window,
-                .get_client_list = api_ewmh_get_client_list,
+            .version = 1,
+            .size = sizeof(EWMHAPI),
+            .get_active_window = api_ewmh_get_active_window,
+            .get_client_list = api_ewmh_get_client_list,
         };
         ph->api.ewmh = &ph->ewmh_api;
     }
@@ -588,6 +625,14 @@ void
 plugin_handler_teardown(PluginHandler *ph)
 {
     plugin_handler_unload_all(ph);
+
+    for (uint32_t i = 0; i < ph->node_count; i++) {
+        if (ph->nodes[i].vk_initialized) {
+            vulkan_runtime_cleanup(&ph->nodes[i].vk);
+            render_list_free(&ph->nodes[i].render_list);
+            ph->nodes[i].vk_initialized = false;
+        }
+    }
 
     free(ph->nodes);
     pthread_mutex_destroy(&ph->request_lock);
@@ -608,4 +653,66 @@ plugin_handler_teardown(PluginHandler *ph)
     close(ph->wake_fds[1]);
 
     log_debug("plugin handler torn down");
+}
+
+void
+plugin_handler_render_all(PluginHandler *ph)
+{
+    if (!ph || !ph->backend || !ph->backend->ops) return;
+
+    for (uint32_t i = 0; i < ph->node_count; i++) {
+        Node *n = &ph->nodes[i];
+        if (!n->in_use || !n->root_widget) continue;
+
+        if (!n->render_requested && n->vk_initialized) continue;
+        n->render_requested = false;
+
+        uint32_t w = 0, h = 0;
+        if (ph->backend->ops->get_dimensions) {
+            ph->backend->ops->get_dimensions(ph->backend, n, &w, &h);
+        }
+        if (w == 0 || h == 0) continue;
+
+        if (!n->vk_initialized) {
+            void *native_disp =
+                ph->backend->ops->get_native_display
+                    ? ph->backend->ops->get_native_display(ph->backend)
+                    : NULL;
+            void *native_win =
+                ph->backend->ops->get_native_window
+                    ? ph->backend->ops->get_native_window(ph->backend, n)
+                    : NULL;
+            int disp_type =
+                ph->backend->ops->get_display_type
+                    ? ph->backend->ops->get_display_type(ph->backend)
+                    : 0;
+
+            if (!native_disp || !native_win) continue;
+
+            render_list_init(&n->render_list);
+            if (vulkan_runtime_init(&n->vk, (DisplayType)disp_type, native_disp,
+                    native_win, w, h) != 0) {
+                log_debug("Failed to init Vulkan for node %u", i);
+                continue;
+            }
+            n->vk_initialized = true;
+            log_debug("Vulkan initialized for node %u (%ux%u)", i, w, h);
+        }
+
+        // Layout widget tree with surface dimensions
+        n->root_widget->width = (float)w;
+        n->root_widget->height = (float)h;
+        widget_layout(n->root_widget);
+
+        // Render widgets into node's render_list
+        render_list_clear(&n->render_list);
+        widget_render(n->root_widget, &n->render_list);
+
+        // Find atlas from widgets
+        GlyphAtlas *atlas = widget_find_atlas(n->root_widget);
+
+        log_debug("plugin_handler_render_all: rendering node %u, cmd count=%zu",
+            i, n->render_list.count);
+        vulkan_runtime_render_frame(&n->vk, &n->render_list, atlas);
+    }
 }

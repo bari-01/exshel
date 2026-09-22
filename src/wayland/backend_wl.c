@@ -1,11 +1,12 @@
 #include "backend_wl.h"
-#include "../../plugin.h"
-#include "../../utils.h"
+#include "../plugin.h"
+#include "../utils.h"
 #include "context.h"
 #include "layer.h"
 #include "popup.h"
 #include "toplevel.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -90,41 +91,60 @@ map_popup_gravity(PopupGravity g)
 }
 
 static bool
-wl_backend_init(BackendContext *bc)
+wl_backend_init(Context *bc)
 {
     (void)bc;
     return true;
 }
 
 static void
-wl_backend_destroy(BackendContext *bc)
+wl_backend_destroy(Context *bc)
 { (void)bc; }
 
 static int
-wl_backend_get_fd(BackendContext *bc)
+wl_backend_get_fd(Context *bc)
 {
     WlContext *ctx = bc->priv;
     return wl_display_get_fd(ctx->display);
 }
 
 static int
-wl_backend_dispatch(BackendContext *bc)
+wl_backend_prepare(Context *bc)
 {
     WlContext *ctx = bc->priv;
-    if (wl_display_dispatch(ctx->display) < 0) return -1;
+    while (wl_display_prepare_read(ctx->display) != 0) {
+        if (wl_display_dispatch_pending(ctx->display) < 0) return -1;
+    }
+    return 0;
+}
+
+static int
+wl_backend_dispatch(Context *bc)
+{
+    WlContext *ctx = bc->priv;
+    if (wl_display_read_events(ctx->display) < 0) {
+        if (errno != EAGAIN) return -1;
+    }
+    if (wl_display_dispatch_pending(ctx->display) < 0) return -1;
     return 0;
 }
 
 static void
-wl_backend_flush(BackendContext *bc)
+wl_backend_cancel(Context *bc)
+{
+    WlContext *ctx = bc->priv;
+    wl_display_cancel_read(ctx->display);
+}
+
+static void
+wl_backend_flush(Context *bc)
 {
     WlContext *ctx = bc->priv;
     wl_display_flush(ctx->display);
 }
 
 static bool
-wl_layer_create(
-        BackendContext *bc, Node *n, const LayerCreateArgs *a, NotifyCtx *nc)
+wl_layer_create(Context *bc, Node *n, const LayerCreateArgs *a, NotifyCtx *nc)
 {
     WlContext *ctx = bc->priv;
     WlLayerNode *wln = calloc(1, sizeof(*wln));
@@ -138,8 +158,8 @@ wl_layer_create(
     wln->nc = nc;
 
     if (!wl_layer_node_init(wln, ctx, map_shell_layer(a->layer), a->namespace,
-                map_shell_anchor(a->anchor), a->width, a->height,
-                a->exclusive_zone)) {
+            map_shell_anchor(a->anchor), a->width, a->height,
+            a->exclusive_zone)) {
         wl_surface_fini(&wln->surface);
         free(wln);
         return false;
@@ -147,13 +167,13 @@ wl_layer_create(
 
     n->priv = wln;
     log_debug("wl_layer_create: node priv=%p size=%ux%u", (void *)wln,
-            wln->width, wln->height);
+        wln->width, wln->height);
     return true;
 }
 
 static bool
-wl_popup_create(BackendContext *bc, Node *n, const PopupCreateArgs *a,
-        Node *parent, NotifyCtx *nc)
+wl_popup_create(
+    Context *bc, Node *n, const PopupCreateArgs *a, Node *parent, NotifyCtx *nc)
 {
     WlContext *ctx = bc->priv;
     WlPopupNode *wpn = calloc(1, sizeof(*wpn));
@@ -193,8 +213,8 @@ wl_popup_create(BackendContext *bc, Node *n, const PopupCreateArgs *a,
     }
 
     if (!wl_popup_node_init(wpn, ctx, &pp, a->anchor_x, a->anchor_y,
-                a->anchor_width, a->anchor_height, a->width, a->height,
-                map_popup_anchor(a->anchor), map_popup_gravity(a->gravity))) {
+            a->anchor_width, a->anchor_height, a->width, a->height,
+            map_popup_anchor(a->anchor), map_popup_gravity(a->gravity))) {
         wl_surface_fini(&wpn->surface);
         free(wpn);
         return false;
@@ -202,13 +222,13 @@ wl_popup_create(BackendContext *bc, Node *n, const PopupCreateArgs *a,
 
     n->priv = wpn;
     log_debug("wl_popup_create: node priv=%p pos=(%d,%d) size=%ux%u",
-            (void *)wpn, wpn->x, wpn->y, wpn->width, wpn->height);
+        (void *)wpn, wpn->x, wpn->y, wpn->width, wpn->height);
     return true;
 }
 
 static bool
 wl_toplevel_create(
-        BackendContext *bc, Node *n, const ToplevelCreateArgs *a, NotifyCtx *nc)
+    Context *bc, Node *n, const ToplevelCreateArgs *a, NotifyCtx *nc)
 {
     WlContext *ctx = bc->priv;
     WlToplevelNode *wtn = calloc(1, sizeof(*wtn));
@@ -222,7 +242,7 @@ wl_toplevel_create(
     wtn->nc = nc;
 
     if (!wl_toplevel_node_init(
-                wtn, ctx, a->width, a->height, a->title, a->app_id)) {
+            wtn, ctx, a->width, a->height, a->title, a->app_id)) {
         wl_surface_fini(&wtn->surface);
         free(wtn);
         return false;
@@ -230,12 +250,12 @@ wl_toplevel_create(
 
     n->priv = wtn;
     log_debug("wl_toplevel_create: node priv=%p size=%ux%u", (void *)wtn,
-            wtn->width, wtn->height);
+        wtn->width, wtn->height);
     return true;
 }
 
 static void
-wl_node_destroy(BackendContext *bc, Node *n)
+wl_node_destroy(Context *bc, Node *n)
 {
     (void)bc;
     if (!n->priv) return;
@@ -266,24 +286,95 @@ wl_node_destroy(BackendContext *bc, Node *n)
     n->priv = NULL;
 }
 
-static const BackendOps wl_ops = {
-        .init = wl_backend_init,
-        .destroy = wl_backend_destroy,
-        .get_fd = wl_backend_get_fd,
-        .dispatch = wl_backend_dispatch,
-        .flush = wl_backend_flush,
-        .layer_create = wl_layer_create,
-        .popup_create = wl_popup_create,
-        .toplevel_create = wl_toplevel_create,
-        .node_destroy = wl_node_destroy,
-        .ewmh_get_active_window = NULL,
-        .ewmh_get_client_list = NULL,
+static void *
+wl_get_native_display(Context *bc)
+{
+    WlContext *ctx = bc->priv;
+    return ctx ? ctx->display : NULL;
+}
+
+static void *
+wl_get_native_window(Context *bc, Node *n)
+{
+    (void)bc;
+    if (!n || !n->priv) return NULL;
+    switch (n->kind) {
+    case NODE_LAYER: {
+        WlLayerNode *wln = n->priv;
+        return wln->surface.surface;
+    }
+    case NODE_POPUP: {
+        WlPopupNode *wpn = n->priv;
+        return wpn->surface.surface;
+    }
+    case NODE_TOPLEVEL: {
+        WlToplevelNode *wtn = n->priv;
+        return wtn->surface.surface;
+    }
+    }
+    return NULL;
+}
+
+static void
+wl_get_dimensions(Context *bc, Node *n, uint32_t *w, uint32_t *h)
+{
+    (void)bc;
+    if (w) *w = 0;
+    if (h) *h = 0;
+    if (!n || !n->priv) return;
+    switch (n->kind) {
+    case NODE_LAYER: {
+        WlLayerNode *wln = n->priv;
+        if (w) *w = wln->width;
+        if (h) *h = wln->height;
+        break;
+    }
+    case NODE_POPUP: {
+        WlPopupNode *wpn = n->priv;
+        if (w) *w = wpn->width;
+        if (h) *h = wpn->height;
+        break;
+    }
+    case NODE_TOPLEVEL: {
+        WlToplevelNode *wtn = n->priv;
+        if (w) *w = wtn->width;
+        if (h) *h = wtn->height;
+        break;
+    }
+    }
+}
+
+static int
+wl_get_display_type(Context *bc)
+{
+    (void)bc;
+    return 0; /* DISPLAY_WAYLAND */
+}
+
+static const Ops wl_ops = {
+    .init = wl_backend_init,
+    .destroy = wl_backend_destroy,
+    .get_fd = wl_backend_get_fd,
+    .prepare = wl_backend_prepare,
+    .dispatch = wl_backend_dispatch,
+    .cancel = wl_backend_cancel,
+    .flush = wl_backend_flush,
+    .layer_create = wl_layer_create,
+    .popup_create = wl_popup_create,
+    .toplevel_create = wl_toplevel_create,
+    .node_destroy = wl_node_destroy,
+    .ewmh_get_active_window = NULL,
+    .ewmh_get_client_list = NULL,
+    .get_native_display = wl_get_native_display,
+    .get_native_window = wl_get_native_window,
+    .get_dimensions = wl_get_dimensions,
+    .get_display_type = wl_get_display_type,
 };
 
-BackendContext *
+Context *
 wl_backend_create(WlContext *ctx)
 {
-    BackendContext *bc = calloc(1, sizeof(*bc));
+    Context *bc = calloc(1, sizeof(*bc));
     if (!bc) return NULL;
     bc->ops = &wl_ops;
     bc->priv = ctx;
@@ -291,5 +382,5 @@ wl_backend_create(WlContext *ctx)
 }
 
 void
-wl_backend_free(BackendContext *bc)
+wl_backend_free(Context *bc)
 { free(bc); }

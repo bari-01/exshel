@@ -26,7 +26,8 @@ plugin_thread_main(void *arg)
 
     log_debug("plugin thread started: %s", lp->plugin->name);
 
-    if (lp->plugin->init(&ph->api, &lp->handle, NULL) == 0) {
+    if (lp->plugin->init(
+            &ph->api, &lp->handle, lp->has_config ? &lp->config : NULL) == 0) {
         log_debug("plugin initialized: %s", lp->plugin->name);
 
         while (!lp->shutdown) {
@@ -61,7 +62,8 @@ plugin_thread_main(void *arg)
 }
 
 bool
-plugin_handler_load(PluginHandler *ph, const char *path)
+plugin_handler_load(
+    PluginHandler *ph, const char *path, const ShellConfigDoc *doc)
 {
     void *dl = dlopen(path, RTLD_NOW | RTLD_LOCAL);
     if (!dl) {
@@ -76,9 +78,18 @@ plugin_handler_load(PluginHandler *ph, const char *path)
         return false;
     }
 
+    if (sp->abi_version != SHELL_ABI_VERSION) {
+        fprintf(stderr,
+            "plugin ABI mismatch for '%s': expected %u, got %u — refusing to "
+            "load\n",
+            path, SHELL_ABI_VERSION, sp->abi_version);
+        dlclose(dl);
+        return false;
+    }
+
     uint32_t idx = ph->plugin_count;
     LoadedPlugin *new_arr =
-            realloc(ph->plugins, (idx + 1) * sizeof(LoadedPlugin));
+        realloc(ph->plugins, (idx + 1) * sizeof(LoadedPlugin));
     if (!new_arr) {
         dlclose(dl);
         return false;
@@ -86,7 +97,7 @@ plugin_handler_load(PluginHandler *ph, const char *path)
     ph->plugins = new_arr;
 
     LoadedPlugin **new_stack =
-            realloc(ph->exited_stack, (idx + 1) * sizeof(LoadedPlugin *));
+        realloc(ph->exited_stack, (idx + 1) * sizeof(LoadedPlugin *));
     if (!new_stack) {
         dlclose(dl);
         return false;
@@ -102,6 +113,12 @@ plugin_handler_load(PluginHandler *ph, const char *path)
     lp->handle.handler = ph;
     lp->handle.plugin_index = idx;
     lp->handle.plugin_data = NULL;
+
+    if (doc && shell_config_get_plugin(doc, sp->name, &lp->config)) {
+        lp->has_config = true;
+        log_debug("loaded config for plugin: %s", sp->name);
+    }
+
     pthread_mutex_init(&lp->event_lock, NULL);
     pthread_cond_init(&lp->event_cond, NULL);
 

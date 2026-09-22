@@ -1,16 +1,18 @@
+#include "config.h"
 #include "plugin.h"
 #include "utils.h"
 
 #ifdef USE_WAYLAND
-#include "backend/wayland/backend_wl.h"
-#include "backend/wayland/context.h"
+#include "wayland/backend_wl.h"
+#include "wayland/context.h"
 #endif
 
 #ifdef USE_X11
-#include "backend/x11/backend_x11.h"
-#include "backend/x11/context.h"
+#include "x11/backend_x11.h"
+#include "x11/context.h"
 #endif
 
+#include <errno.h>
 #include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,8 +21,10 @@
 static void
 usage(const char *prog)
 {
-    fprintf(stderr, "Usage: %s [--backend=wayland|x11] [plugin.so ...]\n",
-            prog);
+    fprintf(stderr,
+        "Usage: %s [--backend=wayland|x11] [--config=<path.json5>] "
+        "<plugin.so> ...\n",
+        prog);
 }
 
 int
@@ -29,16 +33,32 @@ main(int argc, char *argv[])
     log_debug("Starting host");
 
     const char *backend_override = NULL;
-    int plugin_start = 1;
+    const char *config_path = NULL;
+
+    const char *plugin_paths[64];
+    int plugin_count = 0;
 
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--backend=", 10) == 0) {
             backend_override = argv[i] + 10;
-            plugin_start = i + 1;
+        } else if (strncmp(argv[i], "--config=", 9) == 0) {
+            config_path = argv[i] + 9;
+        } else if (strncmp(argv[i], "--", 2) == 0) {
+            fprintf(stderr, "unknown flag: %s\n", argv[i]);
+            usage(argv[0]);
+            return 1;
+        } else {
+            if (plugin_count < 64) plugin_paths[plugin_count++] = argv[i];
         }
     }
 
-    BackendContext *backend = NULL;
+    if (plugin_count == 0) {
+        fprintf(stderr, "no plugins specified\n");
+        usage(argv[0]);
+        return 1;
+    }
+
+    Context *backend = NULL;
 
 #ifdef USE_WAYLAND
     static WlContext wl_ctx;
@@ -100,43 +120,46 @@ main(int argc, char *argv[])
         return 1;
     }
 
+    ShellConfigDoc *cfg_doc = NULL;
+    if (config_path) {
+        cfg_doc = shell_config_load(config_path);
+        if (!cfg_doc) {
+            fprintf(stderr, "Failed to load config: %s\n", config_path);
+            goto cleanup_backend;
+        }
+        log_debug("Loaded config from: %s", config_path);
+    }
+
     PluginHandler ph;
     if (!plugin_handler_init(&ph, backend)) {
         fprintf(stderr, "Failed to init plugin handler\n");
-        goto cleanup_backend;
+        goto cleanup_config;
     }
 
-    bool any_loaded = false;
-    for (int i = plugin_start; i < argc; i++) {
-        if (strncmp(argv[i], "--", 2) == 0) continue;
-        if (!plugin_handler_load(&ph, argv[i]))
-            fprintf(stderr, "failed to load: %s\n", argv[i]);
-        else
-            any_loaded = true;
-    }
-    if (!any_loaded) {
-        if (!plugin_handler_load(&ph, "./build/bar.so"))
-            fprintf(stderr, "failed to load default bar.so\n");
+    for (int i = 0; i < plugin_count; i++) {
+        if (!plugin_handler_load(&ph, plugin_paths[i], cfg_doc))
+            fprintf(stderr, "failed to load: %s\n", plugin_paths[i]);
     }
 
     log_debug("Entering main loop");
 
     struct pollfd fds[2] = {
-            {.fd = backend->ops->get_fd(backend), .events = POLLIN},
-            {.fd = ph.wake_fds[0], .events = POLLIN},
+        {.fd = backend->ops->get_fd(backend), .events = POLLIN},
+        {.fd = ph.wake_fds[0], .events = POLLIN},
     };
 
     while (ph.running) {
-        backend->ops->flush(backend);
-
-        if (poll(fds, 2, -1) < 0) {
-            log_debug("poll error");
+        if (backend->ops->prepare && backend->ops->prepare(backend) < 0) {
+            log_debug("Backend prepare error");
             break;
         }
 
-        if (fds[1].revents & POLLIN) {
-            plugin_handler_drain_wake(&ph);
-            plugin_handler_process_requests(&ph);
+        backend->ops->flush(backend);
+
+        if (poll(fds, 2, -1) < 0) {
+            if (errno == EINTR) continue;
+            log_debug("poll error");
+            break;
         }
 
         if (fds[0].revents & POLLIN) {
@@ -144,11 +167,23 @@ main(int argc, char *argv[])
                 log_debug("Backend dispatch error");
                 break;
             }
+        } else {
+            if (backend->ops->cancel) { backend->ops->cancel(backend); }
         }
+
+        if (fds[1].revents & POLLIN) {
+            plugin_handler_drain_wake(&ph);
+            plugin_handler_process_requests(&ph);
+        }
+
+        plugin_handler_render_all(&ph);
     }
 
     log_debug("Exiting main loop");
     plugin_handler_teardown(&ph);
+
+cleanup_config:
+    shell_config_free(cfg_doc);
 
 cleanup_backend:
     backend->ops->destroy(backend);

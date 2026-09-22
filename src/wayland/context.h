@@ -1,8 +1,8 @@
 #ifndef __WL_CONTEXT_H_
 #define __WL_CONTEXT_H_
 
-#include "../../../generated/wlr-layer-shell-unstable-v1-client-protocol.h"
-#include "../../../generated/xdg-shell-client-protocol.h"
+#include "../../generated/wlr-layer-shell-unstable-v1-client-protocol.h"
+#include "../../generated/xdg-shell-client-protocol.h"
 #include <stdbool.h>
 #include <wayland-client.h>
 

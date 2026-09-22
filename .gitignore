@@ -1,3 +1,6 @@
 build/
 generated/
 compile_commands.json
+staging/
+src/renderer/vulkan/shaders/text_frag_spv.h
+src/renderer/vulkan/shaders/text_vert_spv.h

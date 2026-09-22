@@ -1,5 +1,5 @@
 #include "context.h"
-#include "../../utils.h"
+#include "../utils.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -15,30 +15,30 @@ xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 }
 
 static const struct xdg_wm_base_listener xdg_wm_base_listener = {
-        .ping = xdg_wm_base_ping,
+    .ping = xdg_wm_base_ping,
 };
 
 static void
 registry_global(void *data, struct wl_registry *registry, uint32_t name,
-        const char *interface, uint32_t version)
+    const char *interface, uint32_t version)
 {
     WlContext *ctx = data;
     (void)version;
 
     log_debug("Registry global event: name=%u, interface=%s, version=%u", name,
-            interface, version);
+        interface, version);
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
         ctx->compositor =
-                wl_registry_bind(registry, name, &wl_compositor_interface, 4);
+            wl_registry_bind(registry, name, &wl_compositor_interface, 4);
         log_debug("Bound wl_compositor interface");
     } else if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
-        ctx->layer_shell = wl_registry_bind(
-                registry, name, &zwlr_layer_shell_v1_interface, 1);
+        ctx->layer_shell =
+            wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, 1);
         log_debug("Bound zwlr_layer_shell_v1 interface");
     } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
         ctx->xdg_wm_base =
-                wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+            wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
         log_debug("Bound xdg_wm_base interface");
     }
 }
@@ -53,8 +53,8 @@ registry_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 }
 
 static const struct wl_registry_listener registry_listener = {
-        .global = registry_global,
-        .global_remove = registry_global_remove,
+    .global = registry_global,
+    .global_remove = registry_global_remove,
 };
 
 bool

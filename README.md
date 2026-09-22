@@ -2,25 +2,33 @@ An extensible shell in C for *nix
 
 Dependencies:
 
-3d graphics, X11/Wayland
+Graphics(Vulkan), X11/Wayland, Freetype, Harfbuzz, yyjson
 
 Plugins may depend on pipewire, brightnessctl, DBus, or whichever interface they interact with.
 
 Goals:
 - [x] Display on screen
 - [x] Popups
-- [ ] Vulkan renderer (or opengl etc.)
-- [ ] Multi-display support
+- [x] Vulkan renderer (or opengl etc.) (partial)
+  - [x] Text
+  - [x] Rectangle
+  - [ ] Shared Vulkan instance & device across surfaces
+  - [ ] BVH and lazy redraw support
+- [ ] Multi-display / multi-monitor support
 - [x] Plugins
   - [x] Custom plugin API (.so)
-    - [ ] Widgets oh no
-  - [ ] Examples - 
+  - [x] Worker thread & event dispatch
+  - [x] Widgets (partial)
+    - [x] Containers (VBox, HBox)
+    - [ ] Widget event & input handling
+    - [ ] Padding, margins, and flexible sizing
+  - [ ] Examples
     - [ ] Tray (SNI, DBusMenu)
     - [x] Bar
-      - [ ] Chainloading plugins
+      - [x] Clock (sort-of, isn't independent)
     - [ ] MPRIS
     - [ ] Notifications
-    - [ ] Clock
+      - [ ] Chainloading plugins
     - [ ] Calendar (CalDAV)
     - [ ] Launcher
     - [ ] Workspace management
@@ -37,21 +45,27 @@ Goals:
     - [ ] Brightness (acpilight/brightnessctl etc.)
     - [ ] Network
     - [ ] Clipboard
-    - [ ] Removable devices (udisk2)
+    - [ ] Removable devices (udisks2)
     - [ ] PAM
     - [ ] Lock screen
     - [ ] idle daemon (notify/inhibit)
     - [ ] DPMS
-    - [ ] Lock screen
 - [ ] IPC (UNIX sockets)
-- [ ] Hot reload
 - [ ] Configuration
+  - [x] JSON5 config (via yyjson)
+  - [x] Per-plugin config
+  - [ ] Config hot reload (file watching / inotify / IPC)
+- [ ] Plugin hot reload
 - [ ] Theming
-- [ ] Multi monitor
 - [ ] Persistent state
-- [x] X11
+- [x] Wayland
+  - [x] wlr-layer-shell (bars, docks)
+  - [x] xdg-shell (popups, toplevel)
+  - [ ] Layer shell fractional scaling
+  - [ ] Input handling (wl_seat, pointer, keyboard)
+- [ ] X11
   - [ ] XEmbed
   - [ ] XRandR
   - [ ] XInput
-  - [ ] XCB/Xlib
+  - [x] XCB / EWMH
   - [ ] X11 tray

@@ -1,7 +1,7 @@
 #ifndef __WL_TOPLEVEL_H_
 #define __WL_TOPLEVEL_H_
 
-#include "../../backend/backend.h"
+#include "../backend.h"
 #include "context.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,7 +21,7 @@ typedef struct {
 } WlToplevelNode;
 
 bool wl_toplevel_node_init(WlToplevelNode *n, WlContext *ctx, uint32_t width,
-        uint32_t height, const char *title, const char *app_id);
+    uint32_t height, const char *title, const char *app_id);
 
 void wl_toplevel_node_destroy(WlToplevelNode *n);
 
